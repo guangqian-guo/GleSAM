@@ -36,19 +36,19 @@
 
 ## 📑 Contents
 
-- **[Update](#🔥 Update)**
+- **[Update](#🔥Update)**
 - **[Todo](#Todo List)**
-- **[Results](#🥇 Results of GleSAM)**
+- **[Results](#🥇Results of GleSAM)**
 - **[Model](#📑Model Summary)**
-- **[Environment](#📷 Environment Setup)**
-- **[LQSeg dataset](#💡 LQSeg Dataset)**
-- **[Train](#📈 Train)**
-- **[Evaluation](#📈 Evaluation)**
+- **[Environment](#📷Environment Setup)**
+- **[LQSeg dataset](#💡LQSeg Dataset)**
+- **[Train](#📈Train)**
+- **[Evaluation](#📈Evaluation)**
 - **[Citation](#citation)**
 
 
 
-## 🔥 Update
+## 🔥Update
 
 - **[05/26/2025]🔥We release the [code](https://github.com/guangqian-guo/GleSAM), [models](https://github.com/guangqian-guo/GleSAM), and [data](https://github.com/guangqian-guo/GleSAM) for GleSAM!**
 - **[04/04/2025]🔥We release the [paper](https://arxiv.org/abs/2503.12507) for GleSAM!**
@@ -66,7 +66,7 @@
 
 
 
-## 🥇 Results of GleSAM
+## 🥇Results of GleSAM
 
 <details>
 <summary>Evaluation on Seen dataset (click to expand)</summary>
@@ -103,7 +103,7 @@ You can download the trained models from [this link (extract code: hnj2)](https:
 
 
 
-## 📷 Environment Setup
+## 📷Environment Setup
 
 Please follow the instructions below to install the required packages.
 
@@ -134,13 +134,13 @@ pip install -r requirements.txt
 
 
 
-## 💡 LQSeg Dataset
+## 💡LQSeg Dataset
 
 We construct a comprehensive low-quality image segmentation dataset dubbed ***LQSeg*** that encompasses more complex and multi-level degradations, rather than relying on a single type of degradation for each image. The dataset is composed of images from several existing datasets with our synthesized degradations. Specifically, the degraded process is modeled as the random combination of the four common degradation models, including ***Blur***, ***Random Resize***, ***Noise***, and ***JPEG Compression***. To enrich the granularity of degradation, we employ multi-level degradation by adjusting the downsampling rates. We employed three different resize rates, *i.e.*, [1, 2, 4], which correspond to three degradation levels from slight to severe: **LQ-1**, **LQ-2**, and **LQ-3**.  More details are shown in [this file](degraded_utils/README).
 
 
 
-## 📈 Train
+## 📈Train
 
 GleSAM training consists of two stages: 
 
@@ -175,7 +175,7 @@ If you want to save video memory, you can use fp16 fine-tuning.
 
 
 
-## 📈 Evaluation
+## 📈Evaluation
 
 ```bash
 bash  train_scripts/train_glesam_decoder_multi_dataset.sh   {feature weight}   {work-dir}   {unet-lora-path}  --eval
