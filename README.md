@@ -37,13 +37,13 @@
 ## 📑 Contents
 
 - **[Update](#🔥 Update)**
-- **[Todo](Todo List)**
-- **[Results](# 🥇 Results of GleSAM)**
-- **[Model](Model Summary)**
-- **[Environment](# 📷 Environment Setup)**
-- **[LQSeg dataset](# 💡 LQSeg Dataset)**
-- **[Train](# 📈 Train)**
-- **[Evaluation](# 📈 Evaluation)**
+- **[Todo](#Todo List)**
+- **[Results](#🥇 Results of GleSAM)**
+- **[Model](#📑Model Summary)**
+- **[Environment](#📷 Environment Setup)**
+- **[LQSeg dataset](#💡 LQSeg Dataset)**
+- **[Train](#📈 Train)**
+- **[Evaluation](#📈 Evaluation)**
 - **[Citation](#citation)**
 
 
@@ -97,7 +97,7 @@
 </details>
 
 
-## :page_with_curl: Model Summary
+## 📑Model Summary
 
 You can download the trained models from [this link (extract code: hnj2)](https://pan.baidu.com/s/19bPHc-izizzFQykX5UbrHA).
 
