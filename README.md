@@ -50,6 +50,7 @@
 
 ## 🔥Update
 
+- **[06/07/2025]🔥GleSAM will show a poster at VALSE 2025!**
 - **[05/26/2025]🔥We release the [code](https://github.com/guangqian-guo/GleSAM), [models](https://github.com/guangqian-guo/GleSAM), and [data](https://github.com/guangqian-guo/GleSAM) for GleSAM!**
 - **[04/04/2025]🔥We release the [paper](https://arxiv.org/abs/2503.12507) for GleSAM!**
 - **[03/01/2025]🔥Congratulations! Our GleSAM is accepted by CVPR 2025!**
@@ -58,11 +59,9 @@
 
 ## <a name="Todo_List "></a>Todo List
 
-- [x] Release training & evaluation code.
-
-- [x] Release LQSeg dataset.
-
-- [x] Release trained models.
+- [x] ~~Release training & evaluation code.~~
+- [x] ~~Release trained models.~~
+- [ ] Release the LQSeg dataset.
 
 
 
@@ -206,6 +205,7 @@ If you find this repo useful for your research, please consider citing the paper
 We would like to thank the following repos for their great work:
 
 - This work uses segmentation models from [Segment-Anything](https://github.com/facebookresearch/segment-anything).
+- This work borrowed some degradation code from [SeeSR](https://github.com/cswry/SeeSR).
 
 
 
