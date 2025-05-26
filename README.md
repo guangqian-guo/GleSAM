@@ -11,10 +11,12 @@
 <a>Xuehui Yu</a><sup><span>3</span></sup>,
 <a>Wenbo Li</a><sup><span>4</span></sup>,
 <a>Yaoxing Wang</a><sup><span>1</span></sup>,
-<a>Shan Gao<sup><span>1</span></sup>,
+<a>Shan Gao</a><sup><span>1</span></sup>,
 <br>
 <sup>1</sup> Northwestern Polytechnical University <sup>2</sup> Huawei <sup>3</sup> University of Chinese Academy of Sciences
 <sup>4</sup> Huawei Noah’s Ark Lab <br>
+    </div>
+
 
 ![Multi-Modal](https://img.shields.io/badge/Task-Segmentation-red) <a href='https://arxiv.org/abs/2503.12507'><img src='https://img.shields.io/badge/Paper-Arxiv-red'></a> <a href=''><img src='https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Models-blue'></a> <a href=''><img src='https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Data-green'></a>
 
