@@ -1,6 +1,3 @@
-# Copyright by HQ-SAM team
-# All rights reserved.
-
 ## data loader
 from __future__ import print_function, division
 
