@@ -62,6 +62,7 @@
 - [x] ~~Release training & evaluation code.~~
 - [x] ~~Release trained models.~~
 - [ ] Release the LQSeg dataset.
+- [ ] Release the dataset and models on Hugging Face
 
 
 
