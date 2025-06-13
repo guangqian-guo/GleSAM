@@ -191,11 +191,13 @@ bash  train_scripts/train_glesam_decoder_multi_dataset.sh   5   work-dir/   pyto
 If you find this repo useful for your research, please consider citing the paper
 
 ```
-@article{guo2025segment,
-  title={Segment Any-Quality Images with Generative Latent Space Enhancement},
-  author={Guo, Guangqian and Guo, Yong and Yu, Xuehui and Li, Wenbo and Wang, Yaoxing and Gao, Shan},
-  journal={arXiv preprint arXiv:2503.12507},
-  year={2025}
+@InProceedings{Guo_2025_CVPR,
+    author    = {Guo, Guangqian and Guo, Yong and Yu, Xuehui and Li, Wenbo and Wang, Yaoxing and Gao, Shan},
+    title     = {Segment Any-Quality Images with Generative Latent Space Enhancement},
+    booktitle = {Proceedings of the Computer Vision and Pattern Recognition Conference (CVPR)},
+    month     = {June},
+    year      = {2025},
+    pages     = {2366-2376}
 }
 ```
 
