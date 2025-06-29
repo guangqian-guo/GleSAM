@@ -5,7 +5,7 @@ We construct a comprehensive low-quality image segmentation dataset dubbed ***LQ
 ## Dataset Composition
 The datasets we used include: Thinobject-5K-train, MSRA, LVIS-train for training; ECSSD, COCO, LVIS-test, Thinobject-5K-test for testing.
 
-You can download the clear images from [Baidu Netdisk (53eh)](https://pan.baidu.com/s/126I9wnqDp6UWyZw09nacaw).
+You can download the training set and test set from [Baidu Netdisk (53eh)](https://pan.baidu.com/s/126I9wnqDp6UWyZw09nacaw) or [Huggingface](https://huggingface.co/guogq/GleSAM).
 
 ```bash
 datas
@@ -13,6 +13,11 @@ datas
 		Thinobject-5K
 		MSRA
 		LVIS
+	test
+		COCO
+		ECSSD
+		LVIS
+		Thin
 	test_clear
 		COCO
 		ECSSD

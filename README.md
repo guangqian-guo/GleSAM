@@ -61,8 +61,8 @@
 
 - [x] ~~Release training & evaluation code.~~
 - [x] ~~Release trained models.~~
-- [x] ~~Release the dataset and models on Hugging Face~~
-- [ ] Release the LQSeg dataset.
+- [x] ~~Release the dataset and models on Hugging Face~~.
+- [x] ~~Release the LQSeg dataset.~~
 
 
 
@@ -99,7 +99,7 @@
 
 ## <a name="models"></a>📑Model Summary
 
-You can download the trained models from [this link (extract code: hnj2)](https://pan.baidu.com/s/19bPHc-izizzFQykX5UbrHA).
+You can download the trained models from [Baidu Netdisk(extract code: hnj2)](https://pan.baidu.com/s/19bPHc-izizzFQykX5UbrHA) or [Huggingface](https://huggingface.co/guogq/GleSAM).
 
 
 
