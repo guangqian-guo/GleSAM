@@ -1,4 +1,5 @@
-import argparse 
+import argparse
+from webbrowser import get 
 import torch 
 import os
 from tqdm import tqdm
@@ -17,6 +18,69 @@ import matplotlib.cm as cm
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import random
+from PIL import Image
+
+
+def get_point_prompt(mask, num_points):
+        input_point, input_label = [], []
+        index = np.where(mask == True)
+        y_coord_np = index[0]
+        x_coord_np = index[1]
+        index_list = range(0, len(x_coord_np))        
+        
+        if len(x_coord_np) < num_points:
+            for i in range(len(x_coord_np)):
+                coord = [x_coord_np[i], y_coord_np[i]]
+                input_point.append(coord)
+                input_label.append(1)
+                
+            while(len(input_point) < num_points):
+                if len(x_coord_np) != 0:
+                    input_point.append(coord)
+                
+                else:
+                    input_point.append([256, 256])
+
+                input_label.append(1)
+            
+        else:
+            index = random.sample(index_list, num_points)                           
+            for i in index:
+                coord = [x_coord_np[i], y_coord_np[i]]
+                input_point.append(coord)
+                input_label.append(1)   
+        
+        input_point = torch.tensor(input_point, dtype=torch.float32)
+        input_label = torch.tensor(input_label, dtype=torch.float32)   
+        
+        return input_point, input_label
+
+
+def get_box_prompt(masks):
+    """Compute the bounding boxes around the provided masks
+    The masks should be in format [N, H, W] where N is the number of masks, (H, W) are the spatial dimensions.
+    Returns a [N, 4] tensors, with the boxes in xyxy format
+    """
+    if masks.numel() == 0:
+        return torch.zeros((0, 4), device=masks.device)
+    
+    h, w = masks.shape[-2:]
+
+    y = torch.arange(0, h, dtype=torch.float)
+    x = torch.arange(0, w, dtype=torch.float)
+    y, x = torch.meshgrid(y, x)
+    y = y.to(masks)
+    x = x.to(masks)
+
+    x_mask = ((masks>128) * x.unsqueeze(0))
+    x_max = x_mask.flatten(1).max(-1)[0]
+    x_min = x_mask.masked_fill(~(masks>128), 1e8).flatten(1).min(-1)[0]
+
+    y_mask = ((masks>128) * y.unsqueeze(0))
+    y_max = y_mask.flatten(1).max(-1)[0]
+    y_min = y_mask.masked_fill(~(masks>128), 1e8).flatten(1).min(-1)[0]
+
+    return torch.stack([x_min, y_min, x_max, y_max], 1)
 
 def show_anns(masks, input_point, input_box, input_label, filename, image, ious, boundary_ious):
     if len(masks) == 0:
@@ -65,7 +129,7 @@ class Trainer:
 
         accelerator_project_config = ProjectConfiguration(logging_dir=args.log_path)
         accelerator = Accelerator(
-            gradient_accumulation_steps=args.gradient_accumulation_steps,
+            # gradient_accumulation_steps=args.gradient_accumulation_steps,
             mixed_precision="no",
             log_with="tensorboard",
             project_config=accelerator_project_config,
@@ -74,10 +138,9 @@ class Trainer:
         )
 
         set_seed(args.seed + accelerator.process_index)
-        print(accelerator.state)
         if accelerator.is_main_process:
-            output_path = args.output_path
-            os.makedirs(output_path, exist_ok=True)
+            self.output_path = args.output_path
+            os.makedirs(self.output_path, exist_ok=True)
         self.model = SDUniModel(args, accelerator).to(accelerator.device)
         self.max_grad_norm = args.max_grad_norm
         self.step = 0
@@ -122,7 +185,7 @@ class Trainer:
     def load(self, checkpoint_path):
         # this is used for non-fsdp models.
         self.step = int(checkpoint_path.replace("/", "").split("_")[-1])   # reload step
-        print(self.accelerator.load_state(checkpoint_path, strict=False))
+        self.accelerator.load_state(checkpoint_path, strict=False)
         self.accelerator.print(f"Loaded checkpoint from {checkpoint_path}")
 
     def inference(self, img, point_prompt, point_label):
@@ -140,8 +203,8 @@ class Trainer:
 
         batched_input = []
         data_dict = {}
-        data_dict['image'] = transformed_gt_lq[i]
-        data_dict['original_size'] = gt_lq.shape[-2:]
+        data_dict['image'] = transformed_img[0]
+        data_dict['original_size'] = img.shape[-2:]
         batched_input.append(data_dict)
 
         batched_output = self.sam(batched_input, multimask_output=False, forward_encoder=True, forward_decoder=False)   # 2 256 64 64
@@ -151,13 +214,9 @@ class Trainer:
             latent.append(b_out['encoder_embedding'])
         latent = torch.cat(latent, dim=0)
 
-        hq_feat = latent[:gt.shape[0]]
-        lq_feat = latent[gt.shape[0]:]
-        del latent, batched_output
-
         real_train_dict = {
-            "gt_image": gt,
-            "hq_feat": hq_feat
+            "gt_image": img,
+            "hq_feat": latent
         }
 
         prompt = ['']
@@ -165,7 +224,7 @@ class Trainer:
         uncond_embedding = self.uncond_embedding.repeat(len(text_embedding), 1, 1)
 
         generator_loss_dict, generator_log_dict = self.model(
-            lq, lq_feat, text_embedding, uncond_embedding,
+            img, latent, text_embedding, uncond_embedding,
             visual=False,
             compute_generator_gradient=False,
             real_train_dict=real_train_dict,
@@ -179,27 +238,27 @@ class Trainer:
         for i in range(1):
             data_dict = {}
             data_dict["embeddings"] = pred_feat[i]
-            data_dict['point_coords'] = self.sam_transform.apply_coords_torch(point_prompt[i], gt_lq.shape[-2:]).unsqueeze(0)
+            data_dict['point_coords'] = self.sam_transform.apply_coords_torch(point_prompt[i], img.shape[-2:]).unsqueeze(0)
             data_dict['point_labels'] = point_label[i].unsqueeze(0)
             # data_dict['boxes'] = self.sam_transform.apply_boxes_torch(box_prompt[i:i+1], gt_lq.shape[-2:])
-            data_dict['original_size'] = gt_lq.shape[-2:]
+            data_dict['original_size'] = img.shape[-2:]
             batched_input.append(data_dict)
 
         batched_output = self.sam(batched_input, multimask_output=False, forward_encoder=False, forward_decoder=True)   # 2 256 64 64
         # compute loss  NOTE only support bs=1
         pred_masks = batched_output[0]["low_res_logits"]
         
-        if visual:
-            os.makedirs(os.path.join(self.output_path, 'vis'), exist_ok=True)
-            masks_hq_vis = (F.interpolate(pred_masks.detach(), (512, 512), mode="bilinear", align_corners=False) > 0).cpu()
-            img_vis = gt_lq.permute(0,2,3,1)
-            for ii in range(len(gt)):
-                imgs_ii = img_vis[ii].detach().cpu().numpy().astype(dtype=np.uint8)
-                show_iou = torch.tensor(0)
-                show_boundary_iou = torch.tensor(0)
-                save_base = os.path.join(self.output_path, 'vis', '{}.jpg'.format(step))
-                # show_anns(masks_hq_vis[ii], None, labels_box[ii].cpu(), None, save_base , imgs_ii, show_iou, show_boundary_iou)   
-                show_anns(masks_hq_vis[ii], point_prompt[ii].cpu(), None, np.ones(point_prompt.shape[1]), save_base , imgs_ii, show_iou, show_boundary_iou)    
+        
+        os.makedirs(os.path.join(self.output_path, 'vis'), exist_ok=True)
+        masks_hq_vis = (F.interpolate(pred_masks.detach(), (512, 512), mode="bilinear", align_corners=False) > 0).cpu()
+        img_vis = img.permute(0,2,3,1)
+        for ii in range(len(img)):
+            imgs_ii = img_vis[ii].detach().cpu().numpy().astype(dtype=np.uint8)
+            show_iou = torch.tensor(0)
+            show_boundary_iou = torch.tensor(0)
+            save_base = os.path.join(self.output_path, 'vis', 'result.jpg')
+            # show_anns(masks_hq_vis[ii], None, labels_box[ii].cpu(), None, save_base , imgs_ii, show_iou, show_boundary_iou)   
+            show_anns(masks_hq_vis[ii], point_prompt[ii].cpu(), None, np.ones(point_prompt.shape[1]), save_base , imgs_ii, show_iou, show_boundary_iou)    
 
 
     def val_load(self, checkpoint_path):  # val 
@@ -218,26 +277,23 @@ class Trainer:
             new_state[new_k] = v
 
         info = self.model.feedforward_model.load_state_dict(new_state, strict=False)
-        if self.accelerator.is_main_process:
-            print(info)
-        # self.accelerator.load_state(checkpoint_path, strict=True)
-        # self.accelerator.print(f"Loaded checkpoint from {checkpoint_path}")
-
+                
+                
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_id", type=str, default="")
-    parser.add_argument('--sam_ckpt', type=str, default='pretrained-weights/sam_vit_l_0b3195.pth') 
-    parser.add_argument('--feat_weight', type=int, default=1)  # added by guo  给特征加权
+    parser.add_argument("--model_id", type=str, default="/home/ps/Guo_copy/Guo_checkpoint/sd-1.5")
+    parser.add_argument('--sam_ckpt', type=str, default='trained_models/sd1.5/GleSAM-l.pth') 
+    parser.add_argument('--feat_weight', type=int, default=3)  # added by guo  给特征加权
     parser.add_argument("--eval", action="store_true") # added by guo    
-    parser.add_argument("--ckpt_path_for_val", type=str, default=None)
-    parser.add_argument("--output_path", type=str, default="exp")
+    parser.add_argument("--ckpt_path_for_val", type=str, default='trained_models/sd1.5/pytorch_lora_weights.safetensors')
+    parser.add_argument("--output_path", type=str, default="work-dir")
     parser.add_argument("--dataset_cfg", type=str, default=None)
     parser.add_argument("--log_path", type=str, default="tb-log")
     parser.add_argument("--train_iters", type=int, default=1000000)
     parser.add_argument("--log_iters", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=1)
-    parser.add_argument("--seed", type=int, default=114)
-    # parser.add_argument("--resolution", type=int, default=32)
+    parser.add_argument("--seed", type=int, default=10)
+    parser.add_argument("--resolution", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-5)
     parser.add_argument("--checkpoint_path", type=str, default=None)
     parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
@@ -249,7 +305,7 @@ def parse_args():
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
     parser.add_argument("--use_fp16", action="store_true")
     parser.add_argument("--num_train_timesteps", type=int, default=1000)
-    parser.add_argument("--real_guidance_scale", type=float, default=6.0)
+    parser.add_argument("--real_guidance_scale", type=float, default=8.0)
     parser.add_argument("--fake_guidance_scale", type=float, default=1.0)
     parser.add_argument("--no_save", action="store_true", help="don't save ckpt for debugging only")
     parser.add_argument("--cache_dir", type=str, default="/mnt/localssd/cache")
@@ -257,36 +313,31 @@ def parse_args():
     parser.add_argument("--num_workers", type=int, default=32)
     parser.add_argument("--latent_channel", type=int, default=4)
     parser.add_argument("--max_checkpoint", type=int, default=5)
-    parser.add_argument("--dfake_gen_update_ratio", type=int, default=1)
+    parser.add_argument("--dfake_gen_update_ratio", type=int, default=5)
     parser.add_argument("--generator_lr", type=float)
     parser.add_argument("--guidance_lr", type=float)
     parser.add_argument("--spatial_loss", action="store_true")
     parser.add_argument("--cls_on_clean_image", action="store_true")
     parser.add_argument("--gen_cls_loss", action="store_true")
-    parser.add_argument("--percep_weight", type=float, default=0)
-    parser.add_argument("--gen_cls_loss_weight", type=float, default=1)
-    parser.add_argument("--guidance_cls_loss_weight", type=float, default=1)
-
+    parser.add_argument("--percep_weight", type=float, default=2)
+    parser.add_argument("--gen_cls_loss_weight", type=float, default=5e-3)
+    parser.add_argument("--guidance_cls_loss_weight", type=float, default=1e-2)
     parser.add_argument("--generator_ckpt_path", type=str)
     parser.add_argument("--conditioning_timestep", type=int, default=999)
     parser.add_argument("--gradient_checkpointing", action="store_true", help="apply gradient checkpointing for dfake and generator. this might be a better option than FSDP")
     parser.add_argument("--dm_loss_weight", type=float, default=1.0)
-
     parser.add_argument("--use_x0", action="store_true")
     parser.add_argument("--denoising_timestep", type=int, default=1000)
     parser.add_argument("--num_denoising_step", type=int, default=1)
     parser.add_argument("--denoising_loss_weight", type=float, default=1.0)
-
     parser.add_argument("--diffusion_gan", action="store_true")
-    parser.add_argument("--diffusion_gan_max_timestep", type=int, default=0)
+    parser.add_argument("--diffusion_gan_max_timestep", type=int, default=1000)
     parser.add_argument("--revision", type=str)
-
     parser.add_argument("--real_image_path", type=str)
     parser.add_argument("--gan_alone", action="store_true", help="only use the gan loss without dmd")
     parser.add_argument("--backward_simulation", action="store_true")
-
     parser.add_argument("--generator_lora", action="store_true")
-    parser.add_argument("--lora_rank", type=int, default=64)
+    parser.add_argument("--lora_rank", type=int, default=8)
     parser.add_argument("--lora_alpha", type=float, default=8)
     parser.add_argument("--lora_dropout", type=float, default=0.0)
 
@@ -294,20 +345,35 @@ def parse_args():
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
     if env_local_rank != -1 and env_local_rank != args.local_rank:
         args.local_rank = env_local_rank
-
-    assert args.gradient_accumulation_steps == 1, "grad accumulation not supported yet"
     
     return args 
+
 
 if __name__ == "__main__":
     args = parse_args()
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     trainer = Trainer(args)
-   
-    img = torch.randn(1, 3, 512, 512)  # dummy image
-    mask = torch.randn(1, 1, 512, 512)  # dummy mask
-    point_prompt = torch.tensor([[[100, 100], [200, 200]]])  # dummy points
-    point_label = torch.tensor([[1, 0]])
+    # 1. img and mask path
+    img_path = 'datas/test/ECSSD/ECSSD-LQ-3-orisize/lr/0001.jpg'
+    mask_path = 'datas/test_clear/ecssd/0001.png'
+    
+    # 2. prepare image and mask
+    img = Image.open(img_path).convert("RGB")
+    img = img.resize((512, 512), resample=Image.BICUBIC)  # added by guo
+    img = np.array(img)
+    img = torch.tensor(img / 255.0, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
+    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+    mask = cv2.resize(mask, (512, 512))
+    mask = torch.tensor(mask, dtype=torch.uint8)/255.0   # 0 or 1  512 512
+    
+    # if use point_prompt
+    # randomly select 3 points from the mask, you can also give fixed points
+    point_prompt, point_label = get_point_prompt(mask, 3)
+    point_prompt, point_label = point_prompt.unsqueeze(0), point_label.unsqueeze(0)
+    # print(point_prompt.shape, point_label.shape)
+    
+    # if use bbox prompt, generate bounding box from the mask
+    # box = get_box_prompt(mask)
 
-    Trainer.inference(img, point_prompt, point_label)
+    trainer.inference(img, point_prompt, point_label)

@@ -133,6 +133,14 @@ pip install -r requirements.txt
      - BERT: https://huggingface.co/google-bert/bert-base-uncased/tree/main
 
 
+## 📈 Quickly Start
+We provide a simple and easy-to-use demo that generates segmentation masks based on an input image and point or box prompts. With this tool, you can easily segment objects of interest from an image and obtain their precise masks.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 bash train_scripts/demo.sh
+```
+
+
 
 ## <a name="dataset"></a>💡LQSeg Dataset
 
