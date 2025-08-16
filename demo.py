@@ -248,7 +248,6 @@ class Trainer:
         # compute loss  NOTE only support bs=1
         pred_masks = batched_output[0]["low_res_logits"]
         
-        
         os.makedirs(os.path.join(self.output_path, 'vis'), exist_ok=True)
         masks_hq_vis = (F.interpolate(pred_masks.detach(), (512, 512), mode="bilinear", align_corners=False) > 0).cpu()
         img_vis = img.permute(0,2,3,1)
@@ -259,7 +258,6 @@ class Trainer:
             save_base = os.path.join(self.output_path, 'vis', 'result.jpg')
             # show_anns(masks_hq_vis[ii], None, labels_box[ii].cpu(), None, save_base , imgs_ii, show_iou, show_boundary_iou)   
             show_anns(masks_hq_vis[ii], point_prompt[ii].cpu(), None, np.ones(point_prompt.shape[1]), save_base , imgs_ii, show_iou, show_boundary_iou)    
-
 
     def val_load(self, checkpoint_path):  # val 
         from safetensors.torch import load_file
