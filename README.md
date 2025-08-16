@@ -8,10 +8,10 @@
 <div align="center">
 <a href="https://guangqian-guo.github.io/">Guangqian Guo</a><sup><span>1</span></sup>, 
 <a href="http://www.guoyongcs.com/">Yong Guo</a><sup><span>2</span></sup>,
-<a>Xuehui Yu</a><sup><span>3</span></sup>,
-<a>Wenbo Li</a><sup><span>4</span></sup>,
-<a>Yaoxing Wang</a><sup><span>1</span></sup>,
-<a>Shan Gao</a><sup><span>1</span></sup>,
+<a href="https://scholar.google.com/citations?user=WYrxoBEAAAAJ&hl=zh-CN&oi=ao">Xuehui Yu</a><sup><span>3</span></sup>,
+<a href="https://scholar.google.com/citations?user=foGn_TIAAAAJ&hl=zh-CN&oi=ao">Wenbo Li</a><sup><span>4</span></sup>,
+<a href="https://scholar.google.com/citations?hl=zh-CN&user=bWIwOp8AAAAJ">Yaoxing Wang</a><sup><span>1</span></sup>,
+<a href="https://teacher.nwpu.edu.cn/2018010158.html">Shan Gao</a><sup><span>1</span></sup>,
 <br>
 <sup>1</sup> Northwestern Polytechnical University <sup>2</sup> Huawei <sup>3</sup> University of Chinese Academy of Sciences
 <sup>4</sup> Huawei Noah’s Ark Lab <br>
@@ -19,7 +19,6 @@
 
 
 ![Multi-Modal](https://img.shields.io/badge/Task-Segmentation-red) <a href='https://arxiv.org/abs/2503.12507'><img src='https://img.shields.io/badge/Paper-Arxiv-red'></a> <a href='https://huggingface.co/guogq/GleSAM'><img src='https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Models-blue'></a> <a href='https://huggingface.co/guogq/GleSAM'><img src='https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Data-green'></a>
-
 
 
 **Improving SAM's robustness to low-quality images using generative Diffusion.**
@@ -33,7 +32,6 @@
 ⭐If this work is helpful for you, please help star this repo. Thanks!🤗
 
 
-
 ## 📑 Contents
 
 - **[Update](#🔥Update)**
@@ -45,7 +43,6 @@
 - **[Train](#📈Train)**
 - **[Evaluation](#📈Evaluation)**
 - **[Citation](#citation)**
-
 
 
 ## 🔥Update
