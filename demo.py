@@ -1,4 +1,5 @@
-import argparse 
+import argparse
+from webbrowser import get 
 import torch 
 import os
 from tqdm import tqdm
@@ -20,7 +21,7 @@ import random
 from PIL import Image
 
 
-def get_prompt(mask, num_points):
+def get_point_prompt(mask, num_points):
         input_point, input_label = [], []
         index = np.where(mask == True)
         y_coord_np = index[0]
@@ -53,6 +54,33 @@ def get_prompt(mask, num_points):
         input_label = torch.tensor(input_label, dtype=torch.float32)   
         
         return input_point, input_label
+
+
+def get_box_prompt(masks):
+    """Compute the bounding boxes around the provided masks
+    The masks should be in format [N, H, W] where N is the number of masks, (H, W) are the spatial dimensions.
+    Returns a [N, 4] tensors, with the boxes in xyxy format
+    """
+    if masks.numel() == 0:
+        return torch.zeros((0, 4), device=masks.device)
+    
+    h, w = masks.shape[-2:]
+
+    y = torch.arange(0, h, dtype=torch.float)
+    x = torch.arange(0, w, dtype=torch.float)
+    y, x = torch.meshgrid(y, x)
+    y = y.to(masks)
+    x = x.to(masks)
+
+    x_mask = ((masks>128) * x.unsqueeze(0))
+    x_max = x_mask.flatten(1).max(-1)[0]
+    x_min = x_mask.masked_fill(~(masks>128), 1e8).flatten(1).min(-1)[0]
+
+    y_mask = ((masks>128) * y.unsqueeze(0))
+    y_max = y_mask.flatten(1).max(-1)[0]
+    y_min = y_mask.masked_fill(~(masks>128), 1e8).flatten(1).min(-1)[0]
+
+    return torch.stack([x_min, y_min, x_max, y_max], 1)
 
 def show_anns(masks, input_point, input_box, input_label, filename, image, ious, boundary_ious):
     if len(masks) == 0:
@@ -220,7 +248,6 @@ class Trainer:
         # compute loss  NOTE only support bs=1
         pred_masks = batched_output[0]["low_res_logits"]
         
-        
         os.makedirs(os.path.join(self.output_path, 'vis'), exist_ok=True)
         masks_hq_vis = (F.interpolate(pred_masks.detach(), (512, 512), mode="bilinear", align_corners=False) > 0).cpu()
         img_vis = img.permute(0,2,3,1)
@@ -231,7 +258,6 @@ class Trainer:
             save_base = os.path.join(self.output_path, 'vis', 'result.jpg')
             # show_anns(masks_hq_vis[ii], None, labels_box[ii].cpu(), None, save_base , imgs_ii, show_iou, show_boundary_iou)   
             show_anns(masks_hq_vis[ii], point_prompt[ii].cpu(), None, np.ones(point_prompt.shape[1]), save_base , imgs_ii, show_iou, show_boundary_iou)    
-
 
     def val_load(self, checkpoint_path):  # val 
         from safetensors.torch import load_file
@@ -249,7 +275,8 @@ class Trainer:
             new_state[new_k] = v
 
         info = self.model.feedforward_model.load_state_dict(new_state, strict=False)
-        
+                
+                
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_id", type=str, default="/home/ps/Guo_copy/Guo_checkpoint/sd-1.5")
@@ -276,7 +303,7 @@ def parse_args():
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
     parser.add_argument("--use_fp16", action="store_true")
     parser.add_argument("--num_train_timesteps", type=int, default=1000)
-    parser.add_argument("--real_guidance_scale", type=float, default=6.0)
+    parser.add_argument("--real_guidance_scale", type=float, default=8.0)
     parser.add_argument("--fake_guidance_scale", type=float, default=1.0)
     parser.add_argument("--no_save", action="store_true", help="don't save ckpt for debugging only")
     parser.add_argument("--cache_dir", type=str, default="/mnt/localssd/cache")
@@ -284,34 +311,29 @@ def parse_args():
     parser.add_argument("--num_workers", type=int, default=32)
     parser.add_argument("--latent_channel", type=int, default=4)
     parser.add_argument("--max_checkpoint", type=int, default=5)
-    parser.add_argument("--dfake_gen_update_ratio", type=int, default=1)
+    parser.add_argument("--dfake_gen_update_ratio", type=int, default=5)
     parser.add_argument("--generator_lr", type=float)
     parser.add_argument("--guidance_lr", type=float)
     parser.add_argument("--spatial_loss", action="store_true")
     parser.add_argument("--cls_on_clean_image", action="store_true")
     parser.add_argument("--gen_cls_loss", action="store_true")
-    parser.add_argument("--percep_weight", type=float, default=0)
-    parser.add_argument("--gen_cls_loss_weight", type=float, default=1)
-    parser.add_argument("--guidance_cls_loss_weight", type=float, default=1)
-
+    parser.add_argument("--percep_weight", type=float, default=2)
+    parser.add_argument("--gen_cls_loss_weight", type=float, default=5e-3)
+    parser.add_argument("--guidance_cls_loss_weight", type=float, default=1e-2)
     parser.add_argument("--generator_ckpt_path", type=str)
     parser.add_argument("--conditioning_timestep", type=int, default=999)
     parser.add_argument("--gradient_checkpointing", action="store_true", help="apply gradient checkpointing for dfake and generator. this might be a better option than FSDP")
     parser.add_argument("--dm_loss_weight", type=float, default=1.0)
-
-    parser.add_argument("--use_x0", action='store_true')
+    parser.add_argument("--use_x0", action="store_true")
     parser.add_argument("--denoising_timestep", type=int, default=1000)
     parser.add_argument("--num_denoising_step", type=int, default=1)
     parser.add_argument("--denoising_loss_weight", type=float, default=1.0)
-
-    parser.add_argument("--diffusion_gan", action='store_true')
+    parser.add_argument("--diffusion_gan", action="store_true")
     parser.add_argument("--diffusion_gan_max_timestep", type=int, default=1000)
     parser.add_argument("--revision", type=str)
-
     parser.add_argument("--real_image_path", type=str)
     parser.add_argument("--gan_alone", action="store_true", help="only use the gan loss without dmd")
-    parser.add_argument("--backward_simulation", action='store_true')
-
+    parser.add_argument("--backward_simulation", action="store_true")
     parser.add_argument("--generator_lora", action="store_true")
     parser.add_argument("--lora_rank", type=int, default=8)
     parser.add_argument("--lora_alpha", type=float, default=8)
@@ -324,20 +346,17 @@ def parse_args():
     
     return args 
 
+
 if __name__ == "__main__":
     args = parse_args()
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     trainer = Trainer(args)
-   
-    # img = torch.randn(1, 3, 512, 512)  # dummy image 
-    # mask = torch.randn(1, 1, 512, 512)  # dummy mask
-    # point_prompt = torch.tensor([[[100, 100], [200, 200]]])  # dummy points
-    # point_label = torch.tensor([[1, 0]])
-    
-    img_path = 'datas/test/ECSSD/ECSSD-LQ-1-orisize/lr/0001.jpg'
+    # 1. img and mask path
+    img_path = 'datas/test/ECSSD/ECSSD-LQ-3-orisize/lr/0001.jpg'
     mask_path = 'datas/test_clear/ecssd/0001.png'
     
+    # 2. prepare image and mask
     img = Image.open(img_path).convert("RGB")
     img = img.resize((512, 512), resample=Image.BICUBIC)  # added by guo
     img = np.array(img)
@@ -346,7 +365,13 @@ if __name__ == "__main__":
     mask = cv2.resize(mask, (512, 512))
     mask = torch.tensor(mask, dtype=torch.uint8)/255.0   # 0 or 1  512 512
     
-    point_prompt, point_label = get_prompt(mask, 3)
+    # if use point_prompt
+    # randomly select 3 points from the mask, you can also give fixed points
+    point_prompt, point_label = get_point_prompt(mask, 3)
     point_prompt, point_label = point_prompt.unsqueeze(0), point_label.unsqueeze(0)
+    # print(point_prompt.shape, point_label.shape)
     
+    # if use bbox prompt, generate bounding box from the mask
+    # box = get_box_prompt(mask)
+
     trainer.inference(img, point_prompt, point_label)

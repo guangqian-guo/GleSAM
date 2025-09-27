@@ -149,16 +149,13 @@ class Trainer:
             val_dataloader = accelerator.prepare(val_dataloader)
             self.val_dataloaders.append(val_dataloader)
         #===========================================================
-
-        self.DAPE = ram(pretrained=args.ram_path, 
-                        pretrained_condition=args.ram_ft_path,
-                        image_size=384,
-                        vit='swin_l'
-                    ).to(accelerator.device)
-        self.DAPE.requires_grad_(False)
-        self.DAPE.eval()
-        
-        
+        # self.DAPE = ram(pretrained=args.ram_path, 
+        #                 pretrained_condition=args.ram_ft_path,
+        #                 image_size=384,
+        #                 vit='swin_l'
+        #             ).to(accelerator.device)
+        # self.DAPE.requires_grad_(False)
+        # self.DAPE.eval()
         # ============= init SAM encoder ======================================
         self.sam_encoder = sam_model_registry['encoder'](checkpoint=args.sam_ckpt).to(accelerator.device)
         self.sam_encoder.requires_grad_(False)
@@ -166,7 +163,6 @@ class Trainer:
         # ======================================================================
 
         self.uncond_embedding = self.encode_prompt([""])
-
         dataloader = torch.utils.data.DataLoader(
             dataset, num_workers=args.num_workers, 
             batch_size=args.batch_size, shuffle=False,
@@ -370,13 +366,10 @@ class Trainer:
             "hq_feat": hq_feat
         }
 
-        prompt = self.get_prompt(lq)   # 文本prompt NOTE: generate prompt using RAM, which is not necessary
-        # prompt = ['']
-        
+        # prompt = self.get_prompt(lq)   # 文本prompt NOTE: generate prompt using RAM, which is not necessary
+        prompt = ['']
         text_embedding = self.encode_prompt(prompt)
-
         uncond_embedding = self.uncond_embedding.repeat(len(text_embedding), 1, 1)
-
         generator_loss_dict, generator_log_dict = self.model(
             lq, lq_feat, text_embedding, uncond_embedding,
             visual=visual,
@@ -421,12 +414,9 @@ class Trainer:
         )
 
         guidance_loss = 0
-
         guidance_loss += guidance_loss_dict["loss_fake_mean"]
-
         if self.args.cls_on_clean_image:
             guidance_loss += guidance_loss_dict["guidance_cls_loss"] * self.guidance_cls_loss_weight
-
         self.accelerator.backward(guidance_loss)
         guidance_grad_norm = accelerator.clip_grad_norm_(self.model.guidance_model.parameters(), self.max_grad_norm)
         self.optimizer_guidance.step()
@@ -444,18 +434,14 @@ class Trainer:
 
             if COMPUTE_GENERATOR_GRADIENT:
                 self.writer.add_scalar("grad_norm/generator_grad_norm", generator_grad_norm.item(), self.step)
-
                 if self.args.spatial_loss:
                     self.writer.add_scalar("loss/loss_spatial", loss_dict['loss_spatial'].item(), self.step)
                     self.writer.add_scalar("loss/loss_mse", loss_dict['loss_mse'].item(), self.step)
-
                 if not self.args.gan_alone:
                     self.writer.add_scalar("loss/loss_dm", loss_dict['loss_dm'].item(), self.step)
                     self.writer.add_scalar("grad_norm/dmtrain_gradient_norm", log_dict['dmtrain_gradient_norm'], self.step)
-
                 if self.args.gen_cls_loss:
                     self.writer.add_scalar("loss/gen_cls_loss", loss_dict['gen_cls_loss'].item(), self.step)
-
             if self.args.cls_on_clean_image:
                 self.writer.add_scalar("loss/guidance_cls_loss", loss_dict['guidance_cls_loss'].item(), self.step)
 
@@ -464,10 +450,8 @@ class Trainer:
             # log_dict['lq_feat'] = accelerator.gather(torch.mean(lq_feat.view(-1, 4, 64, 64, 64), dim=2) * 100)  # 低质量特征
             log_dict['pred_feat'] = accelerator.gather(log_dict['pred_image'])  # 预测的特征
             log_dict['gt_feat'] = accelerator.gather(real_train_dict['gt_latent'])  # hq feat
-
             log_dict['lq_image'] = accelerator.gather(lq)  
             log_dict['gt_image'] = accelerator.gather(real_train_dict['gt_image']) 
-
             log_dict['generated_noise'] = accelerator.gather(log_dict['generated_noise'])  
 
         if accelerator.is_main_process and visual:
@@ -477,31 +461,25 @@ class Trainer:
                 # pred_feat_grid = prepare_feat_for_saving(pred_feat)
                 # self.writer.add_images("feat/pred_feat", pred_feat_grid, self.step, dataformats="HWC")
                 self.writer.add_histogram("dist/pred_feat", pred_feat[0], self.step)
-
                 # noise
                 generated_noise = log_dict['generated_noise']
                 self.writer.add_histogram("dist/noise", generated_noise[0], self.step)
-
                 gt_feat = log_dict['gt_feat']
                 # gt_feat_grid = prepare_feat_for_saving(gt_feat)
                 # self.writer.add_images("feat/gt_feat", gt_feat_grid, self.step, dataformats="HWC")
                 self.writer.add_histogram("dist/gt_feat", gt_feat[0], self.step)
-
                 lq_feat = log_dict['lq_feat']
                 # lq_feat_grid = prepare_feat_for_saving(lq_feat)
                 # self.writer.add_images("feat/lq_feat", lq_feat_grid, self.step, dataformats="HWC")
                 self.writer.add_histogram("dist/lq_feat", lq_feat[0], self.step)
-
                 # gt_image = log_dict['gt_image']
                 # gt_image_grid = prepare_images_for_saving(gt_image)
                 # self.writer.add_images("image/gt_image", gt_image_grid, self.step, dataformats="HWC")
-
                 # lq_image = log_dict['lq_image']
                 # lq_image_grid = prepare_images_for_saving(lq_image)
                 # self.writer.add_images("image/lq_image", lq_image_grid, self.step, dataformats="HWC")
 
         self.accelerator.wait_for_everyone()
-
 
     def train(self):
         progress_bar = tqdm(range(self.step, self.train_iters), desc="Training", unit="step")
@@ -509,7 +487,6 @@ class Trainer:
             self.train_one_step()
             if (not self.no_save) and self.step % self.log_iters == 0:
                 self.save()
-
             self.accelerator.wait_for_everyone()
             if self.accelerator.is_main_process:
                 current_time = time.time()
@@ -518,14 +495,12 @@ class Trainer:
                 else:
                     self.writer.add_scalar("time/per_iteration", current_time - self.previous_time, self.step)
                     self.previous_time = current_time
-
             self.step += 1
 
         # Save the lora layers
         self.accelerator.wait_for_everyone()
         if self.accelerator.is_main_process:
             unet = self.model.feedforward_model.to(torch.float32)
-
             unwrapped_unet = self.unwrap_model(unet)
             unet_lora_state_dict = convert_state_dict_to_diffusers(get_peft_model_state_dict(unwrapped_unet))
             StableDiffusionPipeline.save_lora_weights(
@@ -533,12 +508,9 @@ class Trainer:
                 unet_lora_layers=unet_lora_state_dict,
                 safe_serialization=True,
             )
-
             torch.cuda.empty_cache()
-            
         self.accelerator.end_training()
     
-
     def val_load(self, checkpoint_path):  # val 
         from safetensors.torch import load_file
         state_dict = load_file(checkpoint_path)
@@ -558,10 +530,8 @@ class Trainer:
         # self.accelerator.load_state(checkpoint_path, strict=True)
         # self.accelerator.print(f"Loaded checkpoint from {checkpoint_path}")
 
-
     # val 
-    def val(self, ckpt_path):
-        
+    def val(self, ckpt_path):        
         self.val_load(ckpt_path)
         os.makedirs(os.path.join(self.output_path, 'vis/pred_feat'), exist_ok=True)
         os.makedirs(os.path.join(self.output_path, 'vis/gt_feat'), exist_ok=True)
@@ -572,17 +542,11 @@ class Trainer:
         progress_bar = tqdm(self.dataloader, desc="val", unit="step")
         for index in progress_bar:
             self.model.eval()
-
             accelerator = self.accelerator
-
             visual = True
-
             COMPUTE_GENERATOR_GRADIENT = False
-
             batch = next(self.dataloader)
-            
             gt, lq, gt_mask, point_prompt, point_label = batch['gt'], batch['lq'], batch['mask'], batch['point_prompt'], batch['point_label']
-
             gt = rearrange(gt, "b h w c -> b c h w").contiguous().float().to(self.accelerator.device)   # rgb chw 0-1 
             lq = rearrange(lq, "b h w c -> b c h w").contiguous().float().to(self.accelerator.device)
             
@@ -597,7 +561,6 @@ class Trainer:
                 "gt_image": gt,
                 "hq_feat": hq_feat
             }
-
             prompt = self.get_prompt(lq)
             text_embedding = self.encode_prompt(prompt)
             uncond_embedding = self.uncond_embedding.repeat(len(text_embedding), 1, 1)
@@ -612,7 +575,6 @@ class Trainer:
                 )
             log_dict = generator_log_dict
             
-
             if visual:
                 log_dict['lq_feat'] = accelerator.gather(-1*lq_feat*args.feat_weight)  # 低质量特征
                 # log_dict['lq_feat'] = accelerator.gather(torch.mean(lq_feat.view(-1, 4, 64, 64, 64), dim=2) * 100)  # 低质量特征
@@ -622,55 +584,37 @@ class Trainer:
                 log_dict['gt_image'] = accelerator.gather(real_train_dict['gt_image']) 
                 log_dict['generated_noise'] = accelerator.gather(log_dict['generated_noise'])  
             
-            
             if accelerator.is_main_process and visual:
                 # Add TensorBoard images here if needed
                 with torch.no_grad():
                     pred_feat = log_dict['pred_feat']
                     pred_feat_grid = prepare_feat_for_saving(pred_feat)
                     cv2.imwrite(os.path.join(self.output_path, 'vis/pred_feat/{}.jpg'.format(self.step)), pred_feat_grid)
-
                     # self.writer.add_images("feat/pred_feat", pred_feat_grid, self.step, dataformats="HWC")
                     # self.writer.add_histogram("dist/pred_feat", pred_feat[0], self.step)
-
                     # noise
                     # generated_noise = log_dict['generated_noise']
                     # self.writer.add_histogram("dist/noise", generated_noise[0], self.step)
-
                     gt_feat = log_dict['gt_feat']
                     gt_feat_grid = prepare_feat_for_saving(gt_feat)
                     cv2.imwrite(os.path.join(self.output_path, 'vis/gt_feat/{}.jpg'.format(self.step)), gt_feat_grid)
                     # self.writer.add_images("feat/gt_feat", gt_feat_grid, self.step, dataformats="HWC")
                     # self.writer.add_histogram("dist/gt_feat", gt_feat[0], self.step)
-
                     lq_feat = log_dict['lq_feat']
                     lq_feat_grid = prepare_feat_for_saving(lq_feat)
                     cv2.imwrite(os.path.join(self.output_path, 'vis/lq_feat/{}.jpg'.format(self.step)), lq_feat_grid)
                     # self.writer.add_images("feat/lq_feat", lq_feat_grid, self.step, dataformats="HWC")
                     # self.writer.add_histogram("dist/lq_feat", lq_feat[0], self.step)
-                    
                     gt_image = log_dict['gt_image']
                     gt_image_grid = prepare_images_for_saving(gt_image)
                     cv2.imwrite(os.path.join(self.output_path, 'vis/gt_img/{}.jpg'.format(self.step)), gt_image_grid)
                     # self.writer.add_images("image/gt_image", gt_image_grid, self.step, dataformats="HWC")
-
                     lq_image = log_dict['lq_image']
                     lq_image_grid = prepare_images_for_saving(lq_image)
                     cv2.imwrite(os.path.join(self.output_path, 'vis/lq_img/{}.jpg'.format(self.step)), lq_image_grid)
                     # self.writer.add_images("image/lq_image", lq_image_grid, self.step, dataformats="HWC")
-
             self.accelerator.wait_for_everyone()
-
-            # if self.accelerator.is_main_process:
-            #     current_time = time.time()
-            #     if self.previous_time is None:
-            #         self.previous_time = current_time
-            #     else:
-            #         self.writer.add_scalar("time/per_iteration", current_time - self.previous_time, self.step)
-            #         self.previous_time = current_time
-
             self.step += 1
-
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -679,7 +623,6 @@ def parse_args():
     parser.add_argument('--ram_ft_path', type=str, default='/home/ps/Guo/Project/GleSAM-code/pretrained-weights/DAPE.pth')
     parser.add_argument('--sam_ckpt', type=str, default='/home/ps/Guo/Project/GleSAM-code/pretrained-weights/sam_vit_l_0b3195.pth')
     parser.add_argument('--feat_weight', type=int, default=1)  # added by guo 
-    
     parser.add_argument("--ckpt_path_for_val", type=str, default=None)  
     parser.add_argument("--output_path", type=str, default="exp")
     parser.add_argument("--dataset_cfg", type=str, default=None)
@@ -721,25 +664,20 @@ def parse_args():
     parser.add_argument("--conditioning_timestep", type=int, default=999)
     parser.add_argument("--gradient_checkpointing", action="store_true", help="apply gradient checkpointing for dfake and generator. this might be a better option than FSDP")
     parser.add_argument("--dm_loss_weight", type=float, default=1.0)
-
     parser.add_argument("--use_x0", action="store_true")
     parser.add_argument("--denoising_timestep", type=int, default=1000)
     parser.add_argument("--num_denoising_step", type=int, default=1)
     parser.add_argument("--denoising_loss_weight", type=float, default=1.0)
-
     parser.add_argument("--diffusion_gan", action="store_true")
     parser.add_argument("--diffusion_gan_max_timestep", type=int, default=0)
     parser.add_argument("--revision", type=str)
-
     parser.add_argument("--real_image_path", type=str)
     parser.add_argument("--gan_alone", action="store_true", help="only use the gan loss without dmd")
     parser.add_argument("--backward_simulation", action="store_true")
-
     parser.add_argument("--generator_lora", action="store_true")
     parser.add_argument("--lora_rank", type=int, default=64)
     parser.add_argument("--lora_alpha", type=float, default=8)
     parser.add_argument("--lora_dropout", type=float, default=0.0)
-    
     
     args = parser.parse_args()
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
@@ -752,7 +690,6 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     trainer = Trainer(args)
     trainer.train()

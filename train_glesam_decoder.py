@@ -249,13 +249,13 @@ class Trainer:
             self.val_dataloaders.append(val_dataloader)
         #===========================================================
 
-        self.DAPE = ram(pretrained=args.ram_path, 
-                        pretrained_condition=args.ram_ft_path,
-                        image_size=384,
-                        vit='swin_l'
-                    ).to(accelerator.device)
-        self.DAPE.requires_grad_(False)
-        self.DAPE.eval()
+        # self.DAPE = ram(pretrained=args.ram_path, 
+        #                 pretrained_condition=args.ram_ft_path,
+        #                 image_size=384,
+        #                 vit='swin_l'
+        #             ).to(accelerator.device)
+        # self.DAPE.requires_grad_(False)
+        # self.DAPE.eval()
 
         self.uncond_embedding = self.encode_prompt([""])
 
@@ -289,15 +289,15 @@ class Trainer:
         self.previous_time = None 
         self.no_save = args.no_save
 
-    @torch.no_grad()
-    def get_prompt(self, image):
-        ram_transforms = transforms.Compose([
-            transforms.Resize((384, 384)),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-        lq = ram_transforms(image)
-        captions = inference(lq, self.DAPE)
-        return captions
+    # @torch.no_grad()
+    # def get_prompt(self, image):
+    #     ram_transforms = transforms.Compose([
+    #         transforms.Resize((384, 384)),
+    #         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    #     ])
+    #     lq = ram_transforms(image)
+    #     captions = inference(lq, self.DAPE)
+    #     return captions
 
 
     @torch.no_grad()
@@ -429,8 +429,8 @@ class Trainer:
                     "hq_feat": hq_feat
                 }
 
-                prompt = self.get_prompt(lq)   # NOTE: generate prompt using RAM, which is not necessary
-                # prompt = ['']
+                # prompt = self.get_prompt(lq)   # NOTE: generate prompt using RAM, which is not necessary
+                prompt = ['']
                 text_embedding = self.encode_prompt(prompt)
                 uncond_embedding = self.uncond_embedding.repeat(len(text_embedding), 1, 1)
 
@@ -510,19 +510,6 @@ class Trainer:
                 #     best_iou = current_iou
                 #     print('===========> Saved to epoch_best.pth! ==========')
                 #     torch.save(self.sam.state_dict(), os.path.join(self.output_path, "epoch_best.pth"))
-    
-    
-    def calculate_laplacian_variance(self, image):
-        image = image[0].cpu().numpy()*255.0
-        image = cv2.convertScaleAbs(image)
-        
-        # 将图像转换为灰度图
-        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-        # 计算拉普拉斯
-        laplacian = cv2.Laplacian(gray, cv2.CV_64F)
-        # 返回拉普拉斯方差
-        return np.var(laplacian)
-
 
     def val_decoder(self, load=True):
         if load:
@@ -539,19 +526,12 @@ class Trainer:
                 step += 1
                 gt, lq, gt_mask, point_prompt, point_label = batch['gt'], batch['lq'], batch['mask'], batch['point_prompt'], batch['point_label']
                 ori_mask = batch['ori_mask']
-                # ===================================
-                clear_degree = self.calculate_laplacian_variance(gt)
-                clear_degree_list.append(clear_degree)
-                
+            
                 self.sam.eval()
-
                 accelerator = self.accelerator
-
                 visual = False
-
                 COMPUTE_GENERATOR_GRADIENT = False
                 gt = rearrange(gt, "b h w c -> b c h w").contiguous().float().to(self.accelerator.device)   # rgb chw 0-1 
-                
                 lq = gt
                 gt_mask = gt_mask.to(self.accelerator.device).float().unsqueeze(1) * 255.0   # 0-255
                 ori_mask = ori_mask.to(self.accelerator.device).float().unsqueeze(1) * 255.0   # 0-255
@@ -561,7 +541,6 @@ class Trainer:
                 # =============
                 gt_lq = torch.cat((gt, lq), dim=0) * 255.0   # Tensor; [0, 1] -> [0, 255]; RGB; CHW; 
                 transformed_gt_lq = self.sam_transform.apply_image_torch(gt_lq)
-
                 batched_input = []
                 for i in range(gt_lq.shape[0]):
                     data_dict = {}
@@ -586,9 +565,9 @@ class Trainer:
                     "hq_feat": hq_feat
                 }
 
-                prompt = self.get_prompt(lq)    # NOTE: generate prompt using RAM, which is not necessary
+                # prompt = self.get_prompt(lq)    # NOTE: generate prompt using RAM, which is not necessary
                 # print(prompt)
-                # prompt = ['']
+                prompt = ['']
                 text_embedding = self.encode_prompt(prompt)
                 uncond_embedding = self.uncond_embedding.repeat(len(text_embedding), 1, 1)
 
@@ -680,7 +659,6 @@ class Trainer:
         # self.accelerator.load_state(checkpoint_path, strict=True)
         # self.accelerator.print(f"Loaded checkpoint from {checkpoint_path}")
 
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_id", type=str, default="")
@@ -752,7 +730,6 @@ def parse_args():
     parser.add_argument("--lora_alpha", type=float, default=8)
     parser.add_argument("--lora_dropout", type=float, default=0.0)
 
-
     args = parser.parse_args()
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
     if env_local_rank != -1 and env_local_rank != args.local_rank:
@@ -765,16 +742,13 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-
-    os.environ["TOKENIZERS_PARALLELISM"] = "false"
-    trainer = Trainer(args)
     logging.basicConfig(filename=os.path.join(args.output_path, 'log.log'),
                         format='[%(asctime)s-%(filename)s-%(levelname)s:%(message)s]',
                         level=logging.INFO, filemode='a', datefmt='%Y-%m-%d %I:%M:%S %p')
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    trainer = Trainer(args)
+
     if args.eval:
         trainer.val_decoder(None)
     else:
         trainer.train_decoder()
-    
-
-
